@@ -1,0 +1,8 @@
+#!/bin/sh
+
+IPSET=`which ipset`
+
+echo "Lista de endereços AmazonAWS"
+$IPSET -exist create amazon hash:net
+$IPSET flush amazon
+for i in $(cat /etc/sgipset/amazon); do $IPSET add amazon $i; done

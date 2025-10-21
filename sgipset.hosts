@@ -1,0 +1,23 @@
+#!/bin/sh
+
+IPSET=`which ipset`
+
+echo "Lista de hosts"
+$IPSET -exist create hosts hash:ip
+$IPSET flush hosts
+for i in $(cat /etc/sgipset/hosts); do $IPSET add hosts $i; done
+
+echo "Lista de hosts portas baixas"
+$IPSET -exist create hosts-low hash:ip
+$IPSET flush hosts-low
+for i in $(cat /etc/sgipset/hosts-low); do $IPSET add hosts-low $i; done
+
+echo "Lista de hosts portas altas"
+$IPSET -exist create hosts-high hash:ip
+$IPSET flush hosts-high
+for i in $(cat /etc/sgipset/hosts-high); do $IPSET add hosts-high $i; done
+
+echo "Lista de hosts MSN"
+$IPSET -exist create msn-hosts hash:ip
+$IPSET flush msn-hosts
+for i in $(cat /etc/sgipset/msn-hosts); do $IPSET add msn-hosts $i; done

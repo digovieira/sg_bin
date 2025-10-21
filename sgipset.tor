@@ -1,0 +1,12 @@
+#!/bin/sh
+
+IPSET=`which ipset`
+
+echo "Lista de endereços TOR"
+$IPSET -exist create lista_tor hash:ip
+$IPSET flush lista_tor
+cat /tmp/lista | while read line
+ do
+   ipset add lista_tor $line
+ done
+
