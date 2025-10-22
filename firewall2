@@ -1,0 +1,44 @@
+#!/bin/sh
+
+. network.config
+. redes_up.sh
+. sgroutes
+
+echo 1 > /proc/sys/net/ipv4/ip_dynaddr
+echo 1 > /proc/sys/net/ipv4/ip_forward
+echo 1 > /proc/sys/net/ipv4/tcp_syncookies
+
+#modprobe ip_tables
+modprobe ip_gre
+modprobe ip_conntrack_ftp
+modprobe ip_conntrack
+modprobe ip_nat_ftp
+modprobe ip_conntrack_sip
+modprobe ip_nat_sip
+modprobe ip_conntrack_h323
+modprobe ip_nat_h323
+
+SQUIDPORT=3128
+SSLPORT=3128
+SISPATH="/var/www/sistemas/bin/"
+IPTABLES=`which iptables`
+IPTABLES="$IPTABLES -w"
+export IPTABLES SISPATH
+
+echo "Limpando as cadeias..."
+$IPTABLES -F
+$IPTABLES -Z
+$IPTABLES -X
+$IPTABLES -t nat -F
+$IPTABLES -t nat -Z
+$IPTABLES -t nat -X
+$IPTABLES -t mangle -F
+$IPTABLES -t mangle -Z
+$IPTABLES -t mangle -X
+
+echo "Definindo politicas padrao.."
+$IPTABLES -P FORWARD ACCEPT
+
+echo "Mascarando conexoes saida..."
+. snat.sh
+. masq.sh
