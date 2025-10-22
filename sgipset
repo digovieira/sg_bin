@@ -9,7 +9,6 @@ IPSET=`which ipset`
 . sgipset.range
 . sgipset.proxy
 . sgipset.tor
-. sgipset.amazon
 
 echo "IPs externos liberados sem restrições"
 $IPSET -exist create whitelist hash:net
@@ -17,9 +16,7 @@ $IPSET flush whitelist
 for i in $(cat /etc/sgipset/whitelist); do $IPSET add whitelist $i; done
 
 cd /etc/sgipset
-if ping -c 2 www.ipdeny.com > /dev/null; then
-        rm -fR *-aggregated.zone
-fi
+rm -fR *-aggregated.zone
 for g in $(cat geoip); do
         wget http://www.ipdeny.com/ipblocks/data/aggregated/$g-aggregated.zone
         $IPSET -exist create geoip-$g hash:net

@@ -1,5 +1,5 @@
 # !/bin/sh
-H=`/usr/sbin/fping -i 10 -r 0 -t 100 $1 | awk '{print $3}'`
+H=`/usr/sbin/fping -i 10 -r 0 -t 200 $1 | awk '{print $3}'`
 if [ -z $2 ]; then
         T="0"
 else
