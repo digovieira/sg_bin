@@ -17,6 +17,7 @@
 /proxy.sh
 /range.sh
 /redes_up.sh
+/sgroutes
 /snat.sh
 /snat_uol.sh
 /vpn_bypass.sh
