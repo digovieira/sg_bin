@@ -19,3 +19,5 @@
 /redes_up.sh
 /snat.sh
 /snat_uol.sh
+/vpn_bypass.sh
+/vpn_proxy.sh
