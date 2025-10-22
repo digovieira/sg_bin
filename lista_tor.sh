@@ -14,3 +14,4 @@ cat /tmp/lista | while read line
  do
    ipset add lista_tor $line
  done
+

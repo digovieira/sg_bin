@@ -5,7 +5,6 @@ sudo /var/www/sistemas/bin/sgipset.msn
 sudo /var/www/sistemas/bin/sgipset.proxy
 sudo /var/www/sistemas/bin/sgipset.range
 sudo /var/www/sistemas/bin/sgipset.subnets
-sudo /var/www/sistemas/bin/sgipset.amazon
 sudo /var/www/sistemas/bin/firewall 
 sudo systemctl restart squid
 sudo systemctl restart dhcpd

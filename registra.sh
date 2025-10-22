@@ -1,7 +1,6 @@
 #!/bin/sh
 cd /usr/bin
 
-ipset -exist create lista_tor hash:ip
 $IPTABLES -A INPUT -i $LAN_IF1 -m set --match-set lista_tor dst -j LOG --log-prefix "F2B: =TorProject= "
 $IPTABLES -A FORWARD -i $LAN_IF1 -m set --match-set lista_tor dst -j LOG --log-prefix "F2B: =TorProject= "
 $IPTABLES -A FORWARD -i $LAN_IF1 -d 65.49.14.0/24 -j LOG --log-prefix "F2B: =UltraSurf= "
@@ -17,3 +16,4 @@ $IPTABLES -A FORWARD -i $LAN_IF1 -m string --algo bm --string "announce" -j LOG 
 $IPTABLES -A FORWARD -i $LAN_IF1 -m string --algo bm --string "find_node" -j LOG --log-prefix "F2B: =uTorrent= "
 $IPTABLES -A FORWARD -i $LAN_IF1 -m string --algo bm --string "info_hash" -j LOG --log-prefix "F2B: =uTorrent= "
 $IPTABLES -A FORWARD -i $LAN_IF1 -m string --algo bm --string "get_peers" -j LOG --log-prefix "F2B: =uTorrent= "
+
