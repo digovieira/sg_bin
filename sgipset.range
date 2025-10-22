@@ -1,8 +1,0 @@
-#!/bin/sh
-
-IPSET=`which ipset`
-
-echo "Range de endereços DHCP"
-$IPSET -exist create range hash:ip
-$IPSET flush range
-for i in $(cat /etc/sgipset/range); do $IPSET add range $i; done
