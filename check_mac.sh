@@ -8,7 +8,7 @@ fi
 
 if [ $H = 'alive' ]; then
         MAC=`env LANG=C /sbin/arp -a $1 | awk '{print $4}'`
-	M=${MAC:0:17}
+        M=${MAC:0:17}
         P=`nmap -p5800 -P0 $1 | grep vnc | awk '{print $2}'`
         declare -l HN=`env LANG=C nmblookup -A $1 | grep '<20>' | awk '{print $1}'`
         if [ $P = 'open' ]; then
@@ -26,3 +26,4 @@ if [ $H = 'alive' ]; then
 else
         echo "<img src='../images/status3.gif' align="absmiddle" hspace=2 vspace=2 /><font color='#000000'>"$2"</font>"
 fi
+
