@@ -1,8 +1,0 @@
-#!/bin/sh
-
-IPSET=`which ipset`
-
-echo "Lista de endereços MSN"
-$IPSET -exist create msn hash:net,port
-$IPSET flush msn
-for i in $(cat /etc/sgipset/msn); do $IPSET add msn $i; done

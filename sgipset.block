@@ -1,8 +1,0 @@
-#!/bin/sh
-
-IPSET=`which ipset`
-
-echo "Lista de endereços bloquados"
-$IPSET -exist create block hash:net
-$IPSET flush block
-for i in $(cat /etc/sgipset/block); do $IPSET add block $i; done
