@@ -1,5 +1,5 @@
 # !/bin/sh
-H=`/usr/sbin/fping -r 1 $1 | awk '{print $3}'`
+H=`/usr/sbin/fping -i 10 -r 0 -t 100 $1 | awk '{print $3}'`
 
 if [ $H = 'alive' ]; then
         P=`nmap -p5800 -P0 $1 | grep vnc | awk '{print $2}'`

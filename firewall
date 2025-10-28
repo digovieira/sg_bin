@@ -1,8 +1,9 @@
 #!/bin/sh
 
 . network.config
-. redes_up.sh
+/usr/bin/redes_up.sh
 . sgroutes
+. sgipset
 
 echo 1 > /proc/sys/net/ipv4/ip_dynaddr
 echo 1 > /proc/sys/net/ipv4/ip_forward
@@ -10,25 +11,21 @@ echo 1 > /proc/sys/net/ipv4/tcp_syncookies
 
 #modprobe ip_tables
 modprobe ip_gre
-modprobe ip_nat_pptp
-modprobe ip_conntrack_pptp
 modprobe ip_conntrack_ftp
 modprobe ip_conntrack
 modprobe ip_nat_ftp
-#modprobe ip_conntrack_sip
-#modprobe ip_nat_sip
-#modprobe ip_conntrack_h323
-#modprobe ip_nat_h323
+modprobe ip_conntrack_sip
+modprobe ip_nat_sip
+modprobe ip_conntrack_h323
+modprobe ip_nat_h323
 
 SQUIDPORT=3128
 SSLPORT=3128
-SISPATH="/var/www/sistemas/bin/"
 IPTABLES=`which iptables`
 IPTABLES="$IPTABLES -w"
-export IPTABLES SISPATH
+export IPTABLES
 
 echo "Limpando as cadeias..."
-#/usr/sbin/conntrack -F
 $IPTABLES -F
 $IPTABLES -Z
 $IPTABLES -X
@@ -39,18 +36,51 @@ $IPTABLES -t mangle -F
 $IPTABLES -t mangle -Z
 $IPTABLES -t mangle -X
 
+echo "Definindo politicas padrao.."
+$IPTABLES -P FORWARD ACCEPT
+
 echo "Mascarando conexoes saida..."
-. snat_uol.sh
 . snat.sh
 . masq.sh
 
+echo "Aceitar IP dos modems"
+. modem.sh
+
 echo "Bloqueando ataques conhecidos..."
-for i in $(cat $SISPATH/links)
-do
-   $IPTABLES -A FORWARD -o ${!i} -p tcp --dport 445 -j DROP
-   $IPTABLES -A FORWARD -o ${!i} -p udp --dport 445 -j DROP
-   $IPTABLES -A INPUT -i ${!i} -p tcp --dport 3128:3129 -j DROP
-done
+# Bloqueia PING da morte
+$IPTABLES -A INPUT -p icmp --icmp-type echo-request -m limit --limit 1/s -j ACCEPT
+
+# Anti-Spoofings
+$IPTABLES -A INPUT -s 10.0.0.0/8 -i $WAN_IF1 -j DROP
+#$IPTABLES -A INPUT -s 10.0.0.0/8 -i $WAN_IF2 -j DROP
+$IPTABLES -A INPUT -s 127.0.0.0/8 -i $WAN_IF1 -j DROP
+#$IPTABLES -A INPUT -s 127.0.0.0/8 -i $WAN_IF2 -j DROP
+$IPTABLES -A INPUT -s 172.16.0.0/12 -i $WAN_IF1 -j DROP
+#$IPTABLES -A INPUT -s 172.16.0.0/12 -i $WAN_IF2 -j DROP
+$IPTABLES -A INPUT -s 192.168.0.0/16 -i $WAN_IF1 -j DROP
+#$IPTABLES -A INPUT -s 192.168.0.0/16 -i $WAN_IF2 -j DROP
+
+# Contra pacotes indesejaveis
+$IPTABLES -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
+
+# Contra alguns worms
+$IPTABLES -A INPUT -p tcp --dport 135 -i $LAN_IF1  -j REJECT
+
+echo "Bloqueando UltraSurf!"
+. registra.sh
+$IPTABLES -A FORWARD -p tcp --dport 33190 -j DROP
+
+echo "Eliminando pacotes fragmentados..."
+#$IPTABLES -A INPUT -f -j LOG --log-prefix "FRAGMENT: "
+#$IPTABLES -A INPUT -f -j DROP
+#$IPTABLES -A FORWARD -f -j LOG --log-prefix "FRAGMENT: "
+#$IPTABLES -A FORWARD -f -j DROP
+
+echo "Eliminando pacotes invalidos..."
+#$IPTABLES -A INPUT -m state --state INVALID -j LOG --log-prefix "IN INVALID: "
+#$IPTABLES -A INPUT -m state --state INVALID -j DROP
+#$IPTABLES -A FORWARD -m state --state INVALID -j LOG --log-prefix "FW INVALID: "
+#$IPTABLES -A FORWARD -m state --state INVALID -j DROP
 
 echo "Mantendo conexoes existentes ..."
 $IPTABLES -t filter -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
@@ -68,45 +98,60 @@ $IPTABLES -t filter -A HIGHPORTS -p udp --dport 1024: -j ACCEPT
 echo "Liberando conexao local..."
 $IPTABLES -t filter -A INPUT -p icmp -j ACCEPT
 $IPTABLES -t filter -A INPUT -i lo -j ACCEPT
+#$IPTABLES -t filter -A FORWARD -p icmp -j ACCEPT
+$IPTABLES -t filter -A FORWARD -i lo -j ACCEPT
+#$IPTABLES -t filter -A FORWARD -o $IFTEXT -j ACCEPT
 
 echo "Fixando links pelas portas..."
-$IPTABLES -t mangle -A OUTPUT -m state --state ESTABLISHED,RELATED -j CONNMARK --restore-mark
 $IPTABLES -t mangle -A PREROUTING -m state --state ESTABLISHED,RELATED -j CONNMARK --restore-mark
+$IPTABLES -t mangle -A OUTPUT -m state --state ESTABLISHED,RELATED -j CONNMARK --restore-mark
 . connmark.sh
 . mark.sh
 
+echo "Definindo prioridades..."
+$IPTABLES -t mangle -A OUTPUT -p udp --dport 53 -j TOS --set-tos 0x10
+
 echo "Capturando conversas do Jabber..."
-$IPTABLES -t nat -A PREROUTING -p tcp --dport 6222 -j REDIRECT --to-ports 16667
+$IPTABLES -t nat -A PREROUTING -p tcp --destination-port 6222 -j REDIRECT --to-ports 16667
+
+echo "Desviando DNS..."
+#$IPTABLES -t filter -A FORWARD -i $LAN_IF1 -m state --state NEW -m tcp -p tcp -s 192.168.81.250 -d 0.0.0.0/0 --dport 53 -j ACCEPT
+#$IPTABLES -t nat -A PREROUTING -s 192.168.81.250 -p tcp -d 0.0.0.0/0 --dport 53 -j ACCEPT
+#$IPTABLES -t filter -A FORWARD -i $LAN_IF1 -m state --state NEW -m udp -p udp -s 192.168.81.250 -d 0.0.0.0/0 --dport 53 -j ACCEPT
+#$IPTABLES -t nat -A PREROUTING -s 192.168.81.250 -p udp -d 0.0.0.0/0 --dport 53 -j ACCEPT
+$IPTABLES -t nat -A PREROUTING -s $LAN_NET1 -p tcp --dport 53 -j REDIRECT --to-port 53
+$IPTABLES -t nat -A PREROUTING -s $LAN_NET1 -p udp --dport 53 -j REDIRECT --to-port 53
+
+# Direcionando trafego de SMTP vindo da rede interna para o servidor de e-mails
+#$IPTABLES -t nat -A PREROUTING -i $LAN_IF1 -d 200.215.53.186 -p tcp --dport 25 -j DNAT --to-destination 192.168.81.250
+#$IPTABLES -t nat -A PREROUTING -i $LAN_IF1 -d 200.215.53.186 -p tcp --dport 587 -j DNAT --to-destination 192.168.81.250
+#$IPTABLES -t filter -A FORWARD -i $LAN_IF1 -m tcp -p tcp -d 192.168.81.250 --dport 25 -j ACCEPT
+#$IPTABLES -t filter -A FORWARD -i $LAN_IF1 -m tcp -p tcp -d 192.168.81.250 --dport 587 -j ACCEPT
+
+# Liberando máquina André
+$IPTABLES -t filter -A FORWARD -s 10.1.1.21 -j ACCEPT
+$IPTABLES -t nat -A PREROUTING -s 10.1.1.21 -j ACCEPT
 
 echo "Levantando regras dinamicas..."
-echo " - Whitelist IPs"
-$IPTABLES -t filter -A FORWARD -m set --match-set whitelist src -j ACCEPT
-$IPTABLES -t filter -A FORWARD -m set --match-set whitelist dst -j ACCEPT
-$IPTABLES -t nat -A PREROUTING -m set --match-set whitelist src -j ACCEPT
-$IPTABLES -t nat -A PREROUTING -m set --match-set whitelist dst -j ACCEPT
-
+#echo " - Acesso Publico"
+#. weblogin.sh
 echo " - IPs bloqueados"
-$IPTABLES -t filter -I INPUT -m set --match-set block src -j DROP
-$IPTABLES -t filter -I FORWARD -m set --match-set block src -j DROP
-
-echo " - GeoIP"
-for i in $(cat $SISPATH/links)
-do
-   for g in $(cat /etc/sgipset/geoip); do
-      $IPTABLES -t filter -A FORWARD -i ${!i} -m set --match-set geoip-$g src -j ACCEPT
-   done
-   $IPTABLES -t filter -A FORWARD -i ${!i} -m set --match-set geoip-nozone src -j ACCEPT
-   $IPTABLES -t filter -A FORWARD -i ${!i} -j DROP
-done
-
-echo " - Liberação Amazonaws"
-$IPTABLES -t filter -A FORWARD -m set --match-set amazon dst -p tcp --dport 443 -j ACCEPT
-$IPTABLES -t nat -A PREROUTING -m set --match-set amazon dst -p tcp --dport 443 -j ACCEPT
-
+. block.sh
+echo " - Liberacao de VPNs"
+. vpn.sh
+echo " - Acesso entre redes"
+. acesso.sh
+. lan2lan.sh
 echo " - Portas abertas"
 . openports.sh
 echo " - NAT"
 . nat.sh
+echo " - Acessos ao MSN"
+$IPTABLES -t nat -N MSN-pre
+$IPTABLES -t filter -N MSN-fw
+$IPTABLES -t nat -A MSN-pre -m set --match-set msn dst,dst -j ACCEPT
+$IPTABLES -t filter -A MSN-fw -m set --match-set msn dst,dst -j ACCEPT
+. libera_msn.sh
 echo " - Bypass"
 . bypass.sh
 echo " - Bloqueios ao SMTP"
@@ -115,41 +160,47 @@ $IPTABLES -A FORWARD -p tcp --dport 26 -j LOG --log-level 1 --log-prefix 'SMTP: 
 $IPTABLES -A FORWARD -p tcp --dport 465 -j LOG --log-level 1 --log-prefix 'SMTP: '
 $IPTABLES -A FORWARD -p tcp --dport 587 -j LOG --log-level 1 --log-prefix 'SMTP: '
 $IPTABLES -A FORWARD -p tcp -m multiport --dport 25,26,465,587 -j DROP
-echo " - VPN"
-. vpn.sh
-
-echo " - Acessos ao MSN"
-$IPTABLES -t nat -N MSN-pre
-$IPTABLES -t filter -N MSN-fw
-$IPTABLES -t nat -A MSN-pre -m set --match-set msn dst,dst -j ACCEPT
-$IPTABLES -t filter -A MSN-fw -m set --match-set msn dst,dst -j ACCEPT
-$IPTABLES -t nat -A PREROUTING -m set --match-set msn-hosts src -j MSN-pre
-$IPTABLES -t filter -A FORWARD -m set --match-set msn-hosts src -j MSN-fw
-$IPTABLES -A FORWARD -p tcp --dport 1863 -j LOG --log-level 1 --log-prefix 'MSN: '
-$IPTABLES -A FORWARD -i $LAN_IF1 -p tcp --dport 1863 -j DROP
-
 echo " - Portas proxy desviadas"
-for i in $(cat $SISPATH/lans)
-do
-$IPTABLES -t nat -A PREROUTING -i ${!i} -p tcp -m set --match-set proxy dst -j REDIRECT --to-port $SQUIDPORT
-$IPTABLES -t nat -A PREROUTING -i ${!i} -p tcp -m set --match-set proxy-ssl dst -j REDIRECT --to-port $SSLPORT
-done
-
+. proxy.sh
 echo " - Liberacao ranges dinamicos"
-$IPTABLES -t filter -A INPUT -m set --match-set range src -j OPENPORTS
-
+. range.sh
 echo " - Liberacao hosts da rede"
-$IPTABLES -t filter -A INPUT -m set --match-set hosts src -j OPENPORTS
-for i in $(cat $SISPATH/links)
-do
-$IPTABLES -t filter -A FORWARD -o ${!i} -m set --match-set hosts-low src -j LOWPORTS
-$IPTABLES -t filter -A FORWARD -o ${!i} -m set --match-set hosts-high src -j HIGHPORTS
-done
-$IPTABLES -t filter -A INPUT -m set --match-set subnets src -j REJECT --reject-with icmp-host-prohibited
+. libera.sh
+
+echo " - Criando cadeias do Fail2Ban"
+$IPTABLES -N f2b-ultrasurf
+$IPTABLES -A f2b-ultrasurf -j RETURN
+$IPTABLES -I FORWARD -j f2b-ultrasurf
+
+$IPTABLES -N f2b-ultrasurf_input
+$IPTABLES -A f2b-ultrasurf_input -j RETURN
+$IPTABLES -I INPUT -j f2b-ultrasurf_input
+
+$IPTABLES -N f2b-utorrent
+$IPTABLES -A f2b-utorrent -j RETURN
+$IPTABLES -I FORWARD -j f2b-utorrent
+
+$IPTABLES -N f2b-utorrent_input
+$IPTABLES -A f2b-utorrent_input -j RETURN
+$IPTABLES -I INPUT -j f2b-utorrent_input
+
+$IPTABLES -N f2b-ares_galaxy
+$IPTABLES -A f2b-ares_galaxy -j RETURN
+$IPTABLES -I FORWARD -j f2b-ares_galaxy
+
+$IPTABLES -N f2b-ares_galaxy_input
+$IPTABLES -A f2b-ares_galaxy_input -j RETURN
+$IPTABLES -I INPUT -j f2b-ares_galaxy_input
+
+$IPTABLES -N f2b-tor_project
+$IPTABLES -A f2b-tor_project -j RETURN
+$IPTABLES -I FORWARD -j f2b-tor_project
+
+$IPTABLES -N f2b-tor_project_input
+$IPTABLES -A f2b-tor_project_input -j RETURN
+$IPTABLES -I INPUT -j f2b-tor_project_input
 
 echo "Bloqueando todo o resto!!!"
 $IPTABLES -t filter -A INPUT -j REJECT --reject-with icmp-host-prohibited
-for i in $(cat $SISPATH/links)
-do
-   $IPTABLES -t filter -A FORWARD -o ${!i} -j REJECT --reject-with icmp-host-prohibited
-done
+$IPTABLES -t filter -A FORWARD -j REJECT --reject-with icmp-host-prohibited
+

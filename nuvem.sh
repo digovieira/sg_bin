@@ -14,10 +14,9 @@ cp /var/www/wpad/wpad.dat .
 cd /etc
 tar -czvf /backup/SG/openvpn.tar.gz openvpn
 tar -czvf /backup/SG/squid.tar.gz squid
-cd /usr/local/nagios
-tar -czvf /backup/SG/nagios.tar.gz etc 
-cd /usr/local/nagvis/
+tar -czvf /backup/SG/nagios.tar.gz nagios
+cd /usr/share/nagvis/
 tar -czvf /backup/SG/nagvis.tar.gz etc/maps share/userfiles/images/ var
 
 cd /backup/SG
-ftp -in 66.7.212.57 < /etc/backup/nuvem.ftp
+ftp -in 66.7.213.120 < /etc/backup/nuvem.ftp
